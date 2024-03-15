@@ -13,7 +13,8 @@ func main() {
 			DatabaseVersion: pulumi.String("MYSQL_5_7"),
 			Region:          pulumi.String("us-central1"),
 			Settings: &sql.DatabaseInstanceSettingsArgs{
-				Tier: pulumi.String("db-f1-micro"),
+				Tier:                      pulumi.String("db-f1-micro"),
+				DeletionProtectionEnabled: pulumi.Bool(false),
 			},
 		})
 		if err != nil {
@@ -21,7 +22,7 @@ func main() {
 		}
 
 		// Create a database within the dilution-demo instance
-		_, err = sql.NewDatabase(ctx, "dilutionDemoDatabase", &sql.DatabaseArgs{
+		dilutionDemoDatabase, err := sql.NewDatabase(ctx, "dilution-demo-database", &sql.DatabaseArgs{
 			Instance: dilutionDemoDbInstance.Name,
 			Name:     pulumi.String("dilution-demo-db"),
 		})
@@ -39,10 +40,14 @@ func main() {
 			return err
 		}
 
+		// Export the dilution-demo Project ID
+		ctx.Export("dilutionDemoProjectId", dilutionDemoApp.Project)
 		// Export the dilution-demo database connection name
 		ctx.Export("dilutionDemoInstanceConnectionName", dilutionDemoDbInstance.ConnectionName)
 		// Export the dilution-demo Database Host and Port
 		ctx.Export("dilutionDemoDatabaseHost", pulumi.Sprintf("%s", dilutionDemoDbInstance.PublicIpAddress))
+		// Export the dilution-demo Database Name
+		ctx.Export("dilutionDemoDatabaseName", dilutionDemoDatabase.Name)
 		// Export the dilution-demo App Engine App URL
 		ctx.Export("dilutionDemoAppUrl", pulumi.Sprintf("https://%s.appspot.com", dilutionDemoApp.ID()))
 

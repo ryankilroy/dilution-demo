@@ -3,17 +3,25 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@google-cloud/storage": "^7.8.0",
+    "@pulumi/gcp": "^7.14.0",
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
+    "apexcharts": "^3.47.0",
+    "immutable": "^5.0.0-beta.5",
     "react": "^18.2.0",
+    "react-apexcharts": "^1.4.1",
     "react-dom": "^18.2.0",
     "react-scripts": "5.0.1",
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "react-scripts start",
+    "start": "serve -s build",
+    "prestart": "npm install -g serve",
+    "local": "react-scripts start",
     "build": "react-scripts build",
+    "upload": "react-scripts build && gcloud app deploy",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },

@@ -1,0 +1,7 @@
+dispatch:
+  - url: "*/v1/*"
+    service: backend
+  - url: "*/foo"
+    service: backend
+  - url: "*/.*"
+    service: default  # Assuming the frontend is the default service
