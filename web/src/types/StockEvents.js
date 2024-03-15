@@ -17,20 +17,24 @@ const StockEvent = Record({
 });
 
 function createStocks(numberOfShares, date) {
-	return new StockEvent({
-		type: StockEventType.CREATE,
-		date,
-		numberOfShares,
-	});
+	return [
+		new StockEvent({
+			type: StockEventType.CREATE,
+			date,
+			numberOfShares,
+		}),
+	];
 }
 
 function issueStocks(numberOfShares, date, owner) {
-	return new StockEvent({
-		owner,
-		type: StockEventType.ISSUE,
-		date,
-		numberOfShares,
-	});
+	return [
+		new StockEvent({
+			owner,
+			type: StockEventType.ISSUE,
+			date,
+			numberOfShares,
+		}),
+	];
 }
 
 const VestScheduleType = {
@@ -46,7 +50,12 @@ const VestSchedule = Record({
 });
 
 const defaultVestSchedules = (numberOfShares, date) => {
-	const cliffDate = new Date(date.getFullYear() + 1);
+	// cliff date is one year after the start date
+	const cliffDate = new Date(date);
+	cliffDate.setFullYear(cliffDate.getFullYear() + 1);
+	const linearDate = new Date(cliffDate);
+	linearDate.setFullYear(linearDate.getFullYear() + 3);
+
 	const numOfCliffShares = numberOfShares / 4;
 	return [
 		new VestSchedule({
@@ -59,25 +68,27 @@ const defaultVestSchedules = (numberOfShares, date) => {
 			type: VestScheduleType.LINEAR,
 			numberOfShares: numberOfShares - numOfCliffShares,
 			startDate: cliffDate,
-			endDate: new Date(cliffDate.getFullYear() + 3),
+			endDate: linearDate,
 		}),
 	];
 };
 
 function vestStocks(numberOfShares, date, owner) {
-	return new StockEvent({
-		owner,
-		type: StockEventType.VEST,
-		date,
-		numberOfShares,
-	});
+	return [
+		new StockEvent({
+			owner,
+			type: StockEventType.VEST,
+			date,
+			numberOfShares,
+		}),
+	];
 }
 
 function grantStocks(numberOfShares, date, owner, vestSchedules = []) {
 	if (vestSchedules.length === 0) {
 		vestSchedules = defaultVestSchedules(numberOfShares, date);
 	}
-	const GrantStockEvents = [];
+	let GrantStockEvents = [];
 
 	GrantStockEvents.push(
 		new StockEvent({
@@ -90,7 +101,7 @@ function grantStocks(numberOfShares, date, owner, vestSchedules = []) {
 
 	vestSchedules.forEach((vestSchedule) => {
 		if (vestSchedule.type === VestScheduleType.CLIFF) {
-			GrantStockEvents.push(
+			GrantStockEvents = GrantStockEvents.concat(
 				vestStocks(vestSchedule.numberOfShares, vestSchedule.endDate, owner)
 			);
 		} else {
@@ -101,12 +112,12 @@ function grantStocks(numberOfShares, date, owner, vestSchedules = []) {
 					12 +
 				(vestSchedule.endDate.getMonth() - vestSchedule.startDate.getMonth());
 			const monthlyShares = vestSchedule.numberOfShares / numOfVestEvents;
-			let currentDate = new Date(vestSchedule.startDate);
-			for (let i = 0; i < numOfVestEvents; i++) {
-				currentDate = new Date(
-					currentDate.setMonth(currentDate.getMonth() + 1)
+			for (let i = 1; i <= numOfVestEvents; i++) {
+				let vestDate = new Date(vestSchedule.startDate);
+				vestDate.setMonth(vestSchedule.startDate.getMonth() + i);
+				GrantStockEvents = GrantStockEvents.concat(
+					vestStocks(monthlyShares, vestDate, owner)
 				);
-				GrantStockEvents.push(vestStocks(monthlyShares, currentDate, owner));
 			}
 		}
 	});
