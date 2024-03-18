@@ -20,11 +20,14 @@ export const issuedStocksAsOfDate = (issuedStocksSeries, date) => {
 
 // Find most recent stock counts for this entity
 export const getMostRecentAccountStatement = (account, date) => {
-	return account.statements.reduce((mostRecent, statement) => {
-		const isMostRecent =
-			statement.date <= date && statement.date > mostRecent.date;
-		return isMostRecent ? statement : mostRecent;
-	}, account.statements[0]);
+	return account.statements.reduce(
+		(mostRecent, statement) => {
+			const isMostRecent =
+				statement.date <= date && statement.date > mostRecent.date;
+			return isMostRecent ? statement : mostRecent;
+		},
+		{ date: new Date(0), ownedStock: 0, unvestedStock: 0 }
+	);
 };
 
 export const createTimeSeriesOfIssuedStocksEvents = (stockEvents) => {
@@ -46,8 +49,8 @@ export const createTimeSeriesOfIssuedStocksEvents = (stockEvents) => {
 	}, []);
 };
 
-export const createAccountStatements = (stockEvents) => {
-	return stockEvents.reduce((acc, stockEvent) => {
+export const createAccountsFromStockEvents = (stockEvents) => {
+	const accounts = stockEvents.reduce((acc, stockEvent) => {
 		// Construct a new account statement from the stock event
 		const isUnvested = stockEvent.type === StockEvents.StockEventType.GRANT;
 		const newAccountStatement = {
@@ -84,5 +87,70 @@ export const createAccountStatements = (stockEvents) => {
 		existingAccount.statements.push(newAccountStatement);
 
 		return acc;
+	}, []);
+	return accounts;
+};
+
+function addOwnershipPercentToSeries(
+	ownershipPercents,
+	owner,
+	date,
+	ownedStockCount,
+	issuedStockTotal
+) {
+	if (issuedStockTotal === 0) {
+		console.error(`No issued shares as of ${formatDate(date)}. Skipping...`);
+		return;
+	}
+
+	const datapoint = {
+		x: formatDate(date),
+		y: (ownedStockCount / issuedStockTotal) * 100,
+	};
+
+	let ownerSeries = ownershipPercents.find((series) => series.name === owner);
+	if (!ownerSeries) {
+		ownerSeries = {
+			name: owner,
+			type: "area",
+			data: [],
+		};
+		ownershipPercents.push(ownerSeries);
+	}
+
+	ownerSeries.data.push(datapoint);
+}
+
+export const createTimeSeriesOfOwnershipPercents = (
+	issuedStocksEvents,
+	accounts
+) => {
+	return issuedStocksEvents.reduce((accum, stockEvent) => {
+		const date = stockEvent.x;
+		const currentIssuedShares = issuedStocksAsOfDate(
+			issuedStocksEvents,
+			date
+		).y;
+		const tempOwnershipPercents = [...accum];
+
+		accounts.forEach((account) => {
+			const recentAccountStatement = getMostRecentAccountStatement(
+				account,
+				date
+			);
+			const ownedStockCount = recentAccountStatement
+				? recentAccountStatement.ownedStock
+				: 0;
+			// Instead of modifying state, modify a temporary variable
+			addOwnershipPercentToSeries(
+				tempOwnershipPercents,
+				account.name,
+				date,
+				ownedStockCount,
+				currentIssuedShares
+			);
+		});
+
+		return tempOwnershipPercents;
 	}, []);
 };
