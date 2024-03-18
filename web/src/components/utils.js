@@ -1,56 +1,65 @@
 import * as StockEvents from "../types/StockEvents.js";
 
-export const formatDate = (date) => {
-	return new Date(date).toLocaleString("en-US", {
+export const formatDate = (date) =>
+	new Date(date).toLocaleString("en-US", {
 		year: "numeric",
 		month: "2-digit",
 		day: "2-digit",
 	});
-};
-export const sortStockEventsByDate = (stockEvents) => {
-	return stockEvents.sort((a, b) => a.date - b.date);
-};
-// Returns the number of issued shares prior to the given date
-export const issuedStocksAsOfDate = (issuedStocksSeries, date) => {
-	return issuedStocksSeries.reduce((mostRecent, datapoint) => {
-		const isMostRecent = datapoint.x <= date && datapoint.x > mostRecent.x;
-		return isMostRecent ? datapoint : mostRecent;
-	}, issuedStocksSeries[0]);
-};
 
-// Find most recent stock counts for this entity
-export const getMostRecentAccountStatement = (account, date) => {
-	return account.statements.reduce(
-		(mostRecent, statement) => {
-			const isMostRecent =
-				statement.date <= date && statement.date > mostRecent.date;
-			return isMostRecent ? statement : mostRecent;
-		},
-		{ date: new Date(0), ownedStock: 0, unvestedStock: 0 }
-	);
-};
+export const sortStockEventsByDate = (stockEvents) =>
+	stockEvents.sort((a, b) => a.date - b.date);
 
-export const createTimeSeriesOfIssuedStocksEvents = (stockEvents) => {
+export const mostRecentRecordPriorToDate = (
+	date,
+	records,
+	dateFetcher,
+	defaultReturn = {}
+) =>
+	records.reduce((mostRecentRecord, currentRecord) => {
+		const currentDate = dateFetcher(currentRecord);
+		const recentDate = dateFetcher(mostRecentRecord);
+		const isMostRecent = currentDate <= date && currentDate > recentDate;
+		return isMostRecent ? currentRecord : mostRecentRecord;
+	}, defaultReturn);
+
+export const createTimeSeriesFromData = (
+	data,
+	dataXAccessor = (x) => x,
+	dataYAccessor = (y) => y
+) =>
+	data.map((datum) => ({
+		x: dataXAccessor(datum),
+		y: dataYAccessor(datum),
+	}));
+
+export const runningTotalOfIssuedStocksByDate = (stockEvents) => {
 	// Filter stock events to only include ISSUE and VEST events
 	const issuedStockEvents = stockEvents.filter(
 		(event) =>
 			event.type === StockEvents.StockEventType.ISSUE ||
 			event.type === StockEvents.StockEventType.VEST // TODO: exercising options as soon as they vest is not a good assumption
 	);
+
 	// Create a time series of issued shares
-	return issuedStockEvents.reduce((series, stockEvent) => {
+	return issuedStockEvents.reduce((runningTotals, stockEvent) => {
+		// Get the most recent total of issued shares
 		const currentIssuedShares =
-			series.length >= 1 ? series[series.length - 1].y : 0;
-		series.push({
-			x: stockEvent.date,
-			y: currentIssuedShares + stockEvent.numberOfShares,
+			runningTotals.length >= 1
+				? runningTotals[runningTotals.length - 1].issuedStocks
+				: 0;
+
+		// Add the new total to the array
+		runningTotals.push({
+			date: stockEvent.date,
+			issuedStocks: currentIssuedShares + stockEvent.numberOfShares,
 		});
-		return series;
+		return runningTotals;
 	}, []);
 };
 
-export const createAccountsFromStockEvents = (stockEvents) => {
-	const accounts = stockEvents.reduce((acc, stockEvent) => {
+export const createAccountsFromStockEvents = (stockEvents) =>
+	stockEvents.reduce((accounts, stockEvent) => {
 		// Construct a new account statement from the stock event
 		const isUnvested = stockEvent.type === StockEvents.StockEventType.GRANT;
 		const newAccountStatement = {
@@ -59,37 +68,34 @@ export const createAccountsFromStockEvents = (stockEvents) => {
 			unvestedStock: isUnvested ? stockEvent.numberOfShares : 0,
 		};
 		// Convert shares from unvested to vested if the stock event is a VEST
-		if (stockEvent.type === StockEvents.StockEventType.VEST) {
+		if (stockEvent.type === StockEvents.StockEventType.VEST)
 			newAccountStatement.unvestedStock -= stockEvent.numberOfShares;
-		}
 
-		const existingAccount = acc.find(
+		const existingAccount = accounts.find(
 			(account) => account.name === stockEvent.owner
 		);
 		// This is the first stock event for this entity, create a new account
 		if (!existingAccount) {
-			acc.push({
+			accounts.push({
 				name: stockEvent.owner,
 				statements: [newAccountStatement],
 			});
+		} else {
+			// If the account already exists, add the new statement to the account
+			const recentAccountStatement = mostRecentRecordPriorToDate(
+				stockEvent.date,
+				existingAccount.statements,
+				(record) => record.date,
+				{ date: new Date(0), ownedStock: 0, unvestedStock: 0 }
+			);
 
-			return acc;
+			// Add the previous stock count to the new statement
+			newAccountStatement.ownedStock += recentAccountStatement.ownedStock;
+			newAccountStatement.unvestedStock += recentAccountStatement.unvestedStock;
+			existingAccount.statements.push(newAccountStatement);
 		}
-
-		// If the account already exists, add the new statement to the account
-		const recentAccountStatement = getMostRecentAccountStatement(
-			existingAccount,
-			stockEvent.date
-		);
-		// Add the previous stock count to the new statement
-		newAccountStatement.ownedStock += recentAccountStatement.ownedStock;
-		newAccountStatement.unvestedStock += recentAccountStatement.unvestedStock;
-		existingAccount.statements.push(newAccountStatement);
-
-		return acc;
+		return accounts;
 	}, []);
-	return accounts;
-};
 
 function addOwnershipPercentToSeries(
 	ownershipPercents,
@@ -125,22 +131,24 @@ export const createTimeSeriesOfOwnershipPercents = (
 	issuedStocksEvents,
 	accounts
 ) => {
-	return issuedStocksEvents.reduce((accum, stockEvent) => {
-		const date = stockEvent.x;
-		const currentIssuedShares = issuedStocksAsOfDate(
+	return issuedStocksEvents.reduce((tempOwnershipPercents, stockEvent) => {
+		const date = stockEvent.date;
+		// Returns the number of issued shares prior to the given date
+		const currentIssuedShares = mostRecentRecordPriorToDate(
+			date,
 			issuedStocksEvents,
-			date
-		).y;
-		const tempOwnershipPercents = [...accum];
+			(record) => record.date,
+			{ date: new Date(0), issuedStocks: 0 }
+		).issuedStocks;
 
 		accounts.forEach((account) => {
-			const recentAccountStatement = getMostRecentAccountStatement(
-				account,
-				date
+			const recentAccountStatement = mostRecentRecordPriorToDate(
+				date,
+				account.statements,
+				(record) => record.date,
+				{ date: new Date(0), ownedStock: 0, unvestedStock: 0 }
 			);
-			const ownedStockCount = recentAccountStatement
-				? recentAccountStatement.ownedStock
-				: 0;
+			const ownedStockCount = recentAccountStatement.ownedStock;
 			// Instead of modifying state, modify a temporary variable
 			addOwnershipPercentToSeries(
 				tempOwnershipPercents,

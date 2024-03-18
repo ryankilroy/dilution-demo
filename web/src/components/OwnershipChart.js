@@ -3,85 +3,91 @@ import Chart from "react-apexcharts";
 import * as StockEvents from "../types/StockEvents.js";
 import {
 	createAccountsFromStockEvents,
-	createTimeSeriesOfIssuedStocksEvents,
 	createTimeSeriesOfOwnershipPercents,
+	runningTotalOfIssuedStocksByDate,
 	sortStockEventsByDate,
 } from "./utils.js";
 
-function OwnershipChart() {
-	const incorporationStockEvents = [].concat(
-		StockEvents.createStocks(10000000, new Date("2023-01-01")),
-		StockEvents.issueStocks(3950000, new Date("2024-02-02"), "Eren"),
-		StockEvents.issueStocks(3050000, new Date("2024-05-05"), "Mikasa"),
-		StockEvents.grantStocks(2550000, new Date("2025-04-04"), "Armin")
-	);
-	const optionsObject = {
-		chart: {
-			id: "share-chart",
-		},
-		dataLabels: {
-			enabled: false,
-		},
-		legend: {
-			customLegendItems: ["Eren", "Mikasa", "Armin"],
-		},
-		stroke: {
-			width: 3,
-			curve: "smooth",
-		},
-		xaxis: {
-			type: "datetime",
-		},
-		yaxis: {
-			labels: {
-				formatter: (value) => {
-					return value ? value.toFixed(0) + "%" : "";
-				},
-			},
-			min: 0,
-			max: 100,
-		},
-	};
+const incorporationStockEvents = [].concat(
+	StockEvents.createStocks(10000000, new Date("2023-01-01")),
+	StockEvents.issueStocks(3950000, new Date("2024-02-02"), "Eren"),
+	StockEvents.issueStocks(3050000, new Date("2024-05-05"), "Mikasa"),
+	StockEvents.grantStocks(2550000, new Date("2025-04-04"), "Armin")
+);
 
-	const [options, setOptions] = useState(optionsObject);
+const optionsObject = {
+	chart: {
+		id: "share-chart",
+	},
+	dataLabels: {
+		enabled: false,
+	},
+	legend: {
+		customLegendItems: ["Eren", "Mikasa", "Armin"],
+	},
+	stroke: {
+		width: 3,
+		curve: "smooth",
+	},
+	xaxis: {
+		type: "datetime",
+	},
+	yaxis: {
+		labels: {
+			formatter: (value) => {
+				return value ? value.toFixed(0) + "%" : "";
+			},
+		},
+		min: 0,
+		max: 100,
+	},
+};
+
+const OwnershipChart = () => {
+	const chartOptions = optionsObject;
 	const [stockEvents, setStockEvents] = useState(incorporationStockEvents);
 	const [issuedStockEvents, setIssuedStockEvents] = useState([]);
 	const [accounts, setAccounts] = useState([]);
-	const [ownershipPercents, setOwnershipPercents] = useState([]);
+	const [ownershipPercentSeries, setOwnershipPercentSeries] = useState([]);
 
+	// Update issued stocks and accounts when stock events change
 	useEffect(() => {
 		// Filter out stock creation events
 		// TODO: Add functionality around unissued, authorized shares
 		const filteredStockEvents = stockEvents.filter((stockEvent) => {
 			return stockEvent.type !== StockEvents.StockEventType.CREATE;
 		});
+
+		// Sort and create issued stock events
 		const sortedStockEvents = sortStockEventsByDate(filteredStockEvents);
 		const newIssuedStockEvents =
-			createTimeSeriesOfIssuedStocksEvents(sortedStockEvents);
+			runningTotalOfIssuedStocksByDate(sortedStockEvents);
 		setIssuedStockEvents(newIssuedStockEvents);
 
-		const newAccounts = createAccountsFromStockEvents(sortedStockEvents);
-		console.log("Accounts: ", newAccounts);
-		setAccounts(newAccounts);
+		// Create accounts from stock events
+		setAccounts(createAccountsFromStockEvents(sortedStockEvents));
 	}, [stockEvents]);
 
+	// Compute new ownership percentages without directly modifying state
 	useEffect(() => {
-		// Compute new ownership percentages without directly modifying state
 		const newOwnershipPercents = createTimeSeriesOfOwnershipPercents(
 			issuedStockEvents,
 			accounts
 		);
-
-		setOwnershipPercents(newOwnershipPercents);
-	}, [issuedStockEvents, accounts, ownershipPercents]);
+		setOwnershipPercentSeries(newOwnershipPercents);
+	}, [issuedStockEvents, accounts]);
 
 	return (
 		<div className="row">
 			<div className="mixed-chart">
-				<Chart options={options} series={ownershipPercents} width={1000} />
+				<Chart
+					options={chartOptions}
+					series={ownershipPercentSeries}
+					width={500}
+				/>
 			</div>
 		</div>
 	);
-}
+};
 
 export default OwnershipChart;
