@@ -1,21 +1,22 @@
 import React, { useEffect, useState } from "react";
 import Chart from "react-apexcharts";
-import * as StockEvents from "../types/StockEvents.js";
+import * as StockEvents from "../types/StockEvents";
+import { StockEvent } from "../types/StockEvents";
 import {
 	createAccountsFromStockEvents,
 	createTimeSeriesOfOwnershipPercents,
 	runningTotalOfIssuedStocksByDate,
 	sortStockEventsByDate,
-} from "./utils.js";
+} from "./utils";
 
-const incorporationStockEvents = [].concat(
-	StockEvents.createStocks(10000000, new Date("2023-01-01")),
-	StockEvents.issueStocks(3950000, new Date("2024-02-02"), "Eren"),
-	StockEvents.issueStocks(3050000, new Date("2024-05-05"), "Mikasa"),
-	StockEvents.grantStocks(2550000, new Date("2025-04-04"), "Armin")
-);
+const incorporationStockEvents: StockEvent[] = [
+	...StockEvents.createStocks(10000000, new Date("2023-01-01")),
+	...StockEvents.issueStocks(3950000, new Date("2024-02-02"), "Eren"),
+	...StockEvents.issueStocks(3050000, new Date("2024-05-05"), "Mikasa"),
+	...StockEvents.grantStocks(2550000, new Date("2025-04-04"), "Armin")
+];
 
-const optionsObject = {
+const optionsObject: {} = {
 	chart: {
 		id: "share-chart",
 	},
@@ -34,7 +35,7 @@ const optionsObject = {
 	},
 	yaxis: {
 		labels: {
-			formatter: (value) => {
+			formatter: (value: any) => {
 				return value ? value.toFixed(0) + "%" : "";
 			},
 		},
@@ -46,7 +47,7 @@ const optionsObject = {
 const OwnershipChart = () => {
 	const chartOptions = optionsObject;
 	const [stockEvents, setStockEvents] = useState(incorporationStockEvents);
-	const [issuedStockEvents, setIssuedStockEvents] = useState([]);
+	const [issuedStockEvents, setIssuedStockEvents] = useState<{ date: Date, issuedStocks: Number }[]>([]);
 	const [accounts, setAccounts] = useState([]);
 	const [ownershipPercentSeries, setOwnershipPercentSeries] = useState([]);
 

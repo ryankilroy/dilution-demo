@@ -22,7 +22,7 @@
     "local": "react-scripts start",
     "build": "react-scripts build",
     "upload": "react-scripts build && gcloud app deploy",
-    "test": "react-scripts test",
+    "test": "react-scripts test --transformIgnorePatterns 'node_modules/(?!(jest-)?react-native|react-[^/]+/)'",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
@@ -42,5 +42,10 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "@types/react": "^18.2.67",
+    "typescript": "^5.4.2"
   }
 }
