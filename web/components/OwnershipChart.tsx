@@ -1,13 +1,13 @@
+import dynamic from "next/dynamic";
 import React, { useEffect, useState } from "react";
-import Chart from "react-apexcharts";
-import * as StockEvents from "../types/StockEvents";
-import { StockEvent } from "../types/StockEvents";
 import {
 	createAccountsFromStockEvents,
 	createTimeSeriesOfOwnershipPercents,
 	runningTotalOfIssuedStocksByDate,
 	sortStockEventsByDate,
-} from "./utils";
+} from "../lib/utils";
+import * as StockEvents from "../types/StockEvents";
+import { StockEvent } from "../types/StockEvents";
 
 const incorporationStockEvents: StockEvent[] = [
 	...StockEvents.createStocks(10000000, new Date("2023-01-01")),
@@ -44,9 +44,11 @@ const optionsObject: {} = {
 	},
 };
 
+let Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 const OwnershipChart = () => {
+	const [loading, setLoading] = useState(true);
 	const chartOptions = optionsObject;
-	const [stockEvents, setStockEvents] = useState(incorporationStockEvents);
+	const [stockEvents, setStockEvents] = useState<StockEvent[]>(incorporationStockEvents);
 	const [issuedStockEvents, setIssuedStockEvents] = useState<{ date: Date, issuedStocks: Number }[]>([]);
 	const [accounts, setAccounts] = useState([]);
 	const [ownershipPercentSeries, setOwnershipPercentSeries] = useState([]);
@@ -77,6 +79,17 @@ const OwnershipChart = () => {
 		);
 		setOwnershipPercentSeries(newOwnershipPercents);
 	}, [issuedStockEvents, accounts]);
+
+	useEffect(() => {
+		import("react-apexcharts").then((Charts) => {
+			Chart = Charts.default;
+			setLoading(false);
+		});
+	}, []);
+
+	if (loading) {
+		return <div>Loading...</div>;
+	}
 
 	return (
 		<div className="row">
