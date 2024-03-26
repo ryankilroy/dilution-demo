@@ -16,7 +16,7 @@ const (
 
 type StockTransaction struct {
 	ID										int64										`db:"id"`
-	AccountID							int64										`db:"account_id"`
+	AccountID							string									`db:"account_id"`
 	Type									StockTransactionType		`db:"type"`
 	Date									time.Time								`db:"date"`
 	GrantDate							time.Time								`db:"grant_date"`

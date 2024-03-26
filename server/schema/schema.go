@@ -1,6 +1,8 @@
 package schema
 
 import (
+	"dilution-demo/repository"
+
 	"github.com/graphql-go/graphql"
 )
 
@@ -28,7 +30,11 @@ var AccountQueryType = graphql.NewObject(graphql.ObjectConfig{
 			},
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 				owner, _ := p.Args["owner"].(string)
-				return GetAccount(owner), nil
+				account, err := repository.GetAccount(owner)
+				if err != nil {
+					return nil, err
+				}
+				return account, nil
 			},
 		},
 	},
@@ -85,8 +91,6 @@ var AccountStatementType = graphql.NewObject(graphql.ObjectConfig{
 	},
 })
 
-
-
 var Schema, _ = graphql.NewSchema(graphql.SchemaConfig{
-	Query: QueryType,
+	Query: AccountQueryType,
 })
