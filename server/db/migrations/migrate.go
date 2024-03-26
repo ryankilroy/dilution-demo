@@ -1,10 +1,13 @@
-package db
+package main
 
 import (
 	"fmt"
 	"io/fs"
 	"log"
 	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -17,7 +20,7 @@ func main() {
 	databaseUser := os.Getenv("dilutionDemoDatabaseUser")
 
 	if databaseHost == "" || databaseName == "" || databaseUser == "" {
-		log.Fatal("run 'export \"$(pulumi stack output --cwd ../infra --shell)\"' to set the necessary environment variables")
+		log.Fatal("run 'export \"$(pulumi stack output --cwd --shell)\"' to set the necessary environment variables")
 	}
 
 	databasePassword, passwordSet := os.LookupEnv("dilutionDemoDatabasePassword")
@@ -25,24 +28,36 @@ func main() {
 		log.Fatal("set the dilutionDemoDatabasePassword environment variable")
 	}
 
+	migrationDirection := "up"
+	if len(os.Args) > 1 {
+		migrationDirection = strings.ToLower(os.Args[1])
+	}
+	if migrationDirection != "up" && migrationDirection != "down" {
+		log.Fatal("usage: go run migrate_db.go [up|down]")
+	}
+
 	// Fetch the files in the migrations directory
-	files, err := os.ReadDir("migrations")
-	// Only keep "up" files
-	upFiles := []fs.DirEntry{}
-	for i, file := range files {
-		if file.IsDir() || file.Name()[:2] != "up" {
-			upFiles = append(upFiles, files[i+1:]...)
+	_, filename, _, _ := runtime.Caller(0)
+	migrationDir := filepath.Dir(filename)
+	files, err := os.ReadDir(migrationDir)
+
+	// Only keep files that match migration direction
+	migratingFiles := []fs.DirEntry{}
+	for _, file := range files {
+		filenameParts := strings.Split(file.Name(), ".")
+		if filenameParts[len(filenameParts)-1] == "sql" && filenameParts[len(filenameParts)-2] == migrationDirection {
+			migratingFiles = append(migratingFiles, file)
 		}
 	}
 
 	if err != nil {
 		log.Fatal(err)
 	}
-
+	
 	// Confirm with user the migration that is about to run
 	fmt.Printf("Targeting database: 'postgres://%s/%s'\n", databaseHost, databaseName)
 	fmt.Println("This will run the following migrations:")
-	for _, file := range upFiles {
+	for _, file := range migratingFiles {
 		fmt.Printf(" - %s\n", file.Name())
 	}
 	fmt.Printf("\nContinue? (y/n): ")
@@ -55,14 +70,26 @@ func main() {
 
 	url := fmt.Sprintf("postgres://%s:%s@%s:5432/%s?sslmode=disable", databaseUser, databasePassword, databaseHost, databaseName)
 
+	if err != nil {
+		log.Fatal(err)
+	}
 	m, err := migrate.New(
-		"file:///Users/ryankilroy/Workspace/dilution-demo/server/db/migrations/",
+		fmt.Sprintf("file://%s",migrationDir),
 		url)
 		
 		if err != nil {
 			log.Fatal(err)
 		}
-		if err := m.Up(); err != nil {
+		
+		if migrationDirection == "up" {
+			err = m.Up()
+		} else {
+			err = m.Down()
+		}
+
+		if err != nil {
 			log.Fatal(err)
 		}
+
+		fmt.Println("Migration successful")
 	}

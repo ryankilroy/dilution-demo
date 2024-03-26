@@ -1,12 +1,8 @@
 package db
 
-import (
-	"database/sql"
-)
-
 type Account struct {
-		ID									int64								`db:"id"`
-		Owner								sql.NullString			`db:"owner"`
+		ID									string							`db:"id"`
+		Owner								string							`db:"owner"` // Empty string is reserved for an account representing the unassigned shares
 		StockTransactions		[]StockTransaction
 		AccountStatements		[]AccountStatement
 }
