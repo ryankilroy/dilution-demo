@@ -24,7 +24,7 @@ CREATE TABLE AccountStatement (
 		shares INT,
 		vested_options INT,
 		unvested_options INT,
-		ownership_percent DECIMAL(5,4)
+		ownership_percent DECIMAL(6,4)
 );
 
 COMMIT;
