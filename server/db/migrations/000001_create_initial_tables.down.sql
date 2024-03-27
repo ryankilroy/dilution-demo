@@ -1,8 +1,13 @@
 BEGIN;
 
-DROP TABLE IF EXISTS AccountStatement;
-DROP TABLE IF EXISTS StockTransaction;
-DROP TABLE IF EXISTS Account;
+DROP TABLE IF EXISTS AccountStatements;
+DROP TABLE IF EXISTS StockTransactions;
+DROP TABLE IF EXISTS CompanyCapitalization;
+DROP TABLE IF EXISTS Accounts;
+
+COMMIT;
+
+BEGIN;
 
 DROP EXTENSION IF EXISTS "uuid-ossp";
 

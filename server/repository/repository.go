@@ -16,7 +16,7 @@ func GetAccount(owner string) (*models.Account, error) {
 
 	account := &models.Account{}
 	if rows.Next() {
-		err := rows.Scan(&account.ID, &account.Owner)
+		err := rows.Scan(&account.UUID, &account.Owner)
 		if err != nil {
 			return nil, err
 		}

@@ -46,7 +46,7 @@ var StockTransactionType = graphql.NewObject(graphql.ObjectConfig{
 		"id": &graphql.Field{
 			Type: graphql.NewNonNull(graphql.Int),
 		},
-		"account_id": &graphql.Field{
+		"account_uuid": &graphql.Field{
 			Type: graphql.NewNonNull(graphql.String),
 		},
 		"type": &graphql.Field{
@@ -76,7 +76,7 @@ var AccountStatementType = graphql.NewObject(graphql.ObjectConfig{
 		"id": &graphql.Field{
 			Type: graphql.NewNonNull(graphql.Int),
 		},
-		"account_id": &graphql.Field{
+		"account_uuid": &graphql.Field{
 			Type: graphql.NewNonNull(graphql.String),
 		},
 		"shares": &graphql.Field{

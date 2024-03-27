@@ -32,8 +32,8 @@ func main() {
 	if len(os.Args) > 1 {
 		migrationDirection = strings.ToLower(os.Args[1])
 	}
-	if migrationDirection != "up" && migrationDirection != "down" {
-		log.Fatal("usage: go run migrate_db.go [up|down]")
+	if migrationDirection != "up" && migrationDirection != "down" && migrationDirection != "drop" {
+		log.Fatal("usage: go run migrate_db.go [up|down|drop]")
 	}
 
 	// Fetch the files in the migrations directory
@@ -56,9 +56,13 @@ func main() {
 	
 	// Confirm with user the migration that is about to run
 	fmt.Printf("Targeting database: 'postgres://%s/%s'\n", databaseHost, databaseName)
-	fmt.Println("This will run the following migrations:")
-	for _, file := range migratingFiles {
-		fmt.Printf(" - %s\n", file.Name())
+	if migrationDirection == "drop" {
+		fmt.Println("!!! This will drop all tables in the database !!!")
+	} else {
+		fmt.Println("This will run the following migrations:")
+		for _, file := range migratingFiles {
+			fmt.Printf(" - %s\n", file.Name())
+		}
 	}
 	fmt.Printf("\nContinue? (y/n): ")
 
@@ -83,8 +87,10 @@ func main() {
 		
 		if migrationDirection == "up" {
 			err = m.Up()
-		} else {
+		} else if migrationDirection == "down" {
 			err = m.Down()
+		} else if migrationDirection == "drop" {
+			err = m.Drop()
 		}
 
 		if err != nil {
